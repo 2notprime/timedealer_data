@@ -3,3 +3,6 @@ data/
 itemcsv/
 *.json
 *.db
+.env
+__pycache__/
+*.pyc

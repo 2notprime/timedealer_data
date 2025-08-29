@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-DB_PATH = "my_local.db"
+DB_PATH = "my_local_v1.db"
 
 class Item(BaseModel):
     item_id: int
@@ -14,7 +14,7 @@ class Item(BaseModel):
     ref: str
     brand: str
     color: str
-    price: float
+    price: Optional[float]
     currency: str
     year: str
     condition: str
@@ -73,7 +73,7 @@ def search_items(
 
     if sort_price:
         query += f" ORDER BY price {sort_price.upper()}"
-
+    query += f" LIMIT 100"
     data = query_db(query, params)
 
     return SearchItemsResponse(total=len(data), data=data)

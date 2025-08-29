@@ -3,3 +3,6 @@ fastapi
 uvicorn 
 pydantic
 pandas
+tqdm
+psycopg2
+python-dotenv

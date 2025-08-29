@@ -2,6 +2,7 @@ import sqlite3
 import hashlib
 from datetime import datetime
 import csv
+from tqdm import tqdm
 
 DB_PATH = "my_local_v1.db"
 
@@ -78,34 +79,65 @@ def insert_items_from_csv(csv_path, uuid_to_unique):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    with open(csv_path, newline="", encoding="utf-8") as f:
+    with open(csv_path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
-        for row in reader:
-            uuid = row["Uuid"]
-            unique_id = uuid_to_unique.get(uuid)
-            if not unique_id:
-                print(f"⚠️ Bỏ qua item vì không tìm thấy raw: {uuid}")
-                continue
+        success = 0
+        fail = 0
+        for row in tqdm(reader):
+            try:
+                uuid = row["Uuid"]
+                unique_id = uuid_to_unique.get(uuid)
+                if not unique_id:
+                    print(f"⚠️ Bỏ qua item vì không tìm thấy raw: {uuid}")
+                    continue
 
-            cursor.execute(
-                """
-                INSERT INTO message_items 
-                (unique_id, transaction_type, ref, brand, color, price, currency, year, condition, note)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    unique_id,
-                    row["transaction"],
-                    row["ref"],
-                    row["brand"],
-                    row["color"],
-                    float(row["price"]) if row["price"] else None,
-                    row["currency"],
-                    row["year"],
-                    row["condition"],
-                    row["note"] if row["note"] != "null" else None,
-                ),
-            )
+                cursor.execute(
+                    """
+                    INSERT INTO message_items 
+                    (unique_id, transaction_type, ref, brand, color, price, currency, year, condition, note)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        unique_id,
+                        row["transaction"],
+                        row["ref"],
+                        row["brand"],
+                        row["color"],
+                        float(row["price"]) if row["price"] else None,
+                        row["currency"],
+                        row["year"],
+                        row["condition"],
+                        row["note"] if row["note"] != "null" else None,
+                    ),
+                )
+                success += 1
+            except:
+                fail += 1
 
     conn.commit()
     conn.close()
+    return success, fail
+
+import json
+
+file_path = r"C:\timedealer_data\data\2025_export_data.json"
+
+with open(file_path, "r", encoding="utf-8") as f:
+    raw_list = json.load(f) 
+n = len(raw_list)
+print(f"Has {n} raw messages")
+uuid_to_unique = {}
+for raw in tqdm(raw_list):   # raw_list là list JSON bạn có
+    mapping = insert_raw(raw)
+    uuid_to_unique[mapping["uuid"]] = mapping["unique_id"]
+    
+file_path_uuid = r"C:\timedealer_data\data\uuid2unique.json"
+
+with open(file_path_uuid, "w", encoding="utf-8") as f:
+    json.dump(uuid_to_unique, f, ensure_ascii=False, indent=4)
+
+
+with open(file_path_uuid, "r", encoding="utf-8") as f:
+    uuid_to_unique = json.load(f) 
+success, fail = insert_items_from_csv(r"C:\timedealer_data\data\items.csv", uuid_to_unique) 
+print(f"Success: {success}\nFail: {fail}")   
