@@ -6,3 +6,6 @@ pandas
 tqdm
 psycopg2
 python-dotenv
+google.generativeai
+redis
+websockets
