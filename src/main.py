@@ -7,7 +7,6 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import FastAPI
 from src.api import import_api, api
-from src.ws import tracking
 
 app = FastAPI()
 
