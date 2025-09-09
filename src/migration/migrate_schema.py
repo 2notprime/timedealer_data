@@ -27,7 +27,7 @@ DDL_STATEMENTS = [
         group_name TEXT,
         sender_name TEXT,
         sender_phone TEXT,
-        posted_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        posted_time TIMESTAMPTZ DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
         image TEXT,
         hash_message TEXT,
         phone_message_hash TEXT,
@@ -44,7 +44,7 @@ DDL_STATEMENTS = [
     CREATE TABLE IF NOT EXISTS messages_unique (
         unique_id SERIAL PRIMARY KEY,
         hash_message TEXT UNIQUE,
-        first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        first_seen TIMESTAMPTZ DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
         last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """,
@@ -61,59 +61,81 @@ DDL_STATEMENTS = [
         brand TEXT,
         color TEXT,
         price DOUBLE PRECISION,
+        usd_price DOUBLE PRECISION,
         country TEXT,
         currency TEXT,
-        year TEXT,
+        release_date DATE,
         condition TEXT,
-        note TEXT
+        note TEXT,
+        precision TEXT CHECK (precision IN ('day', 'month', 'year'))
     );
     """,
     "CREATE INDEX IF NOT EXISTS idx_items_ref ON message_items (ref);",
-    "CREATE INDEX IF NOT EXISTS idx_items_brand_year ON message_items (brand, year);",
+    "CREATE INDEX IF NOT EXISTS idx_items_brand ON message_items (brand);",
     "CREATE INDEX IF NOT EXISTS idx_items_price ON message_items (price);",
+    "CREATE INDEX IF NOT EXISTS idx_items_usd_price ON message_items (usd_price);",
+    "CREATE INDEX IF NOT EXISTS idx_items_release_date ON message_items (release_date);",
     "CREATE INDEX IF NOT EXISTS idx_items_condition ON message_items (condition);",
     "CREATE INDEX IF NOT EXISTS idx_items_unique_id ON message_items (message_id);",
 
-    # Tracking Items
+    # Tracking query
     """
-    CREATE TABLE IF NOT EXISTS tracking_items (
+    CREATE TABLE IF NOT EXISTS tracking_queries (
         tracking_id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL,
-        item_id INTEGER NOT NULL,
-        tracking_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        tracking_time TIMESTAMPTZ DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
         transaction_type TEXT,
         ref TEXT,
-        brand TEXT,
-        color TEXT,
         min_price DOUBLE PRECISION,
         max_price DOUBLE PRECISION,
-        country TEXT,
-        currency TEXT,
-        year TEXT,
+        year INTEGER,
         condition TEXT,
         count INTEGER,
-        UNIQUE (user_id, item_id)
+        UNIQUE (user_id, transaction_type, ref, min_price, max_price, year, condition)
     );
     """,
-    "CREATE INDEX IF NOT EXISTS idx_tracking_items_tracking_time ON tracking_items (tracking_time);",
-    "CREATE INDEX IF NOT EXISTS idx_tracking_items_brand ON tracking_items (brand);",
-    "CREATE INDEX IF NOT EXISTS idx_tracking_items_min_price ON tracking_items (min_price);",
-    "CREATE INDEX IF NOT EXISTS idx_tracking_items_max_price ON tracking_items (max_price);",
-    "CREATE INDEX IF NOT EXISTS idx_tracking_items_condition ON tracking_items (condition);",
-    "CREATE INDEX IF NOT EXISTS idx_tracking_items_color ON tracking_items (color);",
+    "CREATE INDEX IF NOT EXISTS idx_tracking_queries_userid ON tracking_queries (user_id);",
+    
+    # # Tracking Items
+    # """
+    # CREATE TABLE IF NOT EXISTS tracking_items (
+    #     tracking_id SERIAL PRIMARY KEY,
+    #     user_id INTEGER NOT NULL,
+    #     item_id INTEGER NOT NULL,
+    #     tracking_time TIMESTAMPTZ DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
+    #     transaction_type TEXT,
+    #     ref TEXT,
+    #     brand TEXT,
+    #     color TEXT,
+    #     min_price DOUBLE PRECISION,
+    #     max_price DOUBLE PRECISION,
+    #     country TEXT,
+    #     currency TEXT,
+    #     year TEXT,
+    #     condition TEXT,
+    #     count INTEGER,
+    #     UNIQUE (user_id, item_id)
+    # );
+    # """,
+    # "CREATE INDEX IF NOT EXISTS idx_tracking_items_tracking_time ON tracking_items (tracking_time);",
+    # "CREATE INDEX IF NOT EXISTS idx_tracking_items_brand ON tracking_items (brand);",
+    # "CREATE INDEX IF NOT EXISTS idx_tracking_items_min_price ON tracking_items (min_price);",
+    # "CREATE INDEX IF NOT EXISTS idx_tracking_items_max_price ON tracking_items (max_price);",
+    # "CREATE INDEX IF NOT EXISTS idx_tracking_items_condition ON tracking_items (condition);",
+    # "CREATE INDEX IF NOT EXISTS idx_tracking_items_color ON tracking_items (color);",
 
-    # Tracking results
-    """
-    CREATE TABLE IF NOT EXISTS tracking_results (
-        id SERIAL PRIMARY KEY,
-        tracking_id INTEGER NOT NULL,
-        item_id INTEGER NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (tracking_id, item_id)
-    );
-    """,
-    "CREATE INDEX IF NOT EXISTS idx_tracking_results_tracking_id ON tracking_results (tracking_id);",
-    "CREATE INDEX IF NOT EXISTS idx_tracking_results_item_id ON tracking_results (item_id);",
+    # # Tracking results
+    # """
+    # CREATE TABLE IF NOT EXISTS tracking_results (
+    #     id SERIAL PRIMARY KEY,
+    #     tracking_id INTEGER NOT NULL,
+    #     item_id INTEGER NOT NULL,
+    #     created_at TIMESTAMPTZ DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
+    #     UNIQUE (tracking_id, item_id)
+    # );
+    # """,
+    # "CREATE INDEX IF NOT EXISTS idx_tracking_results_tracking_id ON tracking_results (tracking_id);",
+    # "CREATE INDEX IF NOT EXISTS idx_tracking_results_item_id ON tracking_results (item_id);",
 ]
 
 def init_postgres():

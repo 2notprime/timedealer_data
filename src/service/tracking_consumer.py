@@ -78,8 +78,6 @@ def process_item(item, cur):
     # dynamic query
     where_clause = " AND ".join(conditions) if conditions else "1=1"
     query = f"SELECT tracking_id, item_id FROM tracking_items WHERE {where_clause};"
-    print(query)
-    print(params)
     cur.execute(query, params)
     matches = cur.fetchall()
     print(f"Found {len(matches)} matches for item ID {item[0]}")

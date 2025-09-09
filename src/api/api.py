@@ -1,217 +1,16 @@
-# from fastapi import FastAPI, Body, HTTPException
-# from pydantic import BaseModel, Field
-# from typing import Optional
-# import sqlite3
-# from typing import Literal
-
-
-# app = FastAPI()
-# DB_PATH = r"C:\timedealer_data\my_local_v2.db"
-    
-
-# class SearchRequest(BaseModel):
-#     ref: Optional[str] = Field(None, example="RE")
-#     transaction_type: Literal[0, 1] = Field(1, example=0, description="0: forsale, 1: wtb")
-#     condition: Literal[0, 1] = Field(0, example=0, description="0: new, 1: used")
-#     brand: Optional[str] = Field(None, example="Puma")
-#     year: Optional[str] = Field(None, example="2021")
-#     country: Optional[list[str]] = Field(None, example=["VN", "US", "DE"])
-#     time_range: Optional[int] = Field(None, example=8640000)
-#     price_min: Optional[float] = Field(None, example=0)
-#     price_max: Optional[float] = Field(None, example=1000000000)
-#     currency: Optional[str] = Field("USD", example="HKD")
-#     sort_price: Literal[0, 1] = Field(None, example=0, description="0: asc, 1: desc")
-#     limit: int = Field(50, example=50)
-#     offset: int = Field(0, example=0)
-
-# class TrackingRequest(BaseModel):
-#     user_id: int
-#     item_id: int
-#     min_price: Optional[float] = None
-#     max_price: Optional[float] = None
-
-# def get_db():
-#     conn = sqlite3.connect(DB_PATH)
-#     conn.row_factory = sqlite3.Row
-#     return conn
-
-# @app.post("/search_items")
-# def search_items(body: SearchRequest = Body(...)):
-#     base_query = "FROM message_items mi JOIN messages_raw mr ON mi.message_id = mr.id"
-#     params = []
-
-#     if body.transaction_type:
-#         if body.transaction_type == 0:
-#             transaction_type = "forsale"
-#         else:
-#             transaction_type = "wtb"
-#         base_query += " AND mi.transaction_type = ?"
-#         params.append(transaction_type)
-
-#     if body.condition:
-#         if body.condition == 0:
-#             condition = "new"
-#         else:
-#             condition = "used"
-#         base_query += " AND mi.condition = ?"
-#         params.append(condition)
-
-#     if body.brand:
-#         base_query += " AND mi.brand = ?"
-#         params.append(body.brand)
-
-#     if body.year:
-#         base_query += " AND mi.year = ?"
-#         params.append(body.year)
-
-#     if body.price_min is not None:
-#         base_query += " AND mi.price >= ?"
-#         params.append(body.price_min)
-
-#     if body.price_max is not None:
-#         base_query += " AND mi.price <= ?"
-#         params.append(body.price_max)
-
-#     if body.currency:
-#         base_query += " AND mi.currency = ?"
-#         params.append(body.currency)
-
-#     if body.ref:
-#         base_query += " AND mi.ref LIKE ?"
-#         params.append(f"%{body.ref}%")
-    
-#     if body.time_range:
-#         base_query += " AND mr.posted_time >= datetime('now', '-' || ? || ' seconds')"
-#         params.append(body.time_range)
-
-#     if body.country:
-#         base_query += " AND mi.country IN ({})".format(", ".join("?" for _ in body.country))
-#         params.extend(body.country)
-    
-    
-
-#     # Kết nối DB
-#     conn = get_db()
-#     cursor = conn.cursor()
-
-#     # SELECT dữ liệu
-#     query = f"""
-#     SELECT 
-#             mi.item_id,
-#             mi.message_id,
-#             mr.message,
-#             mr.sender_name,
-#             mr.sender_phone,
-#             mi.transaction_type,
-#             mi.ref,
-#             mi.brand,
-#             mi.color,
-#             mi.price,
-#             mi.country,
-#             mi.currency,
-#             mi.year,
-#             mi.condition,
-#             mi.note,
-#             mr.posted_time {base_query}"""
-    
-#     if body.sort_price:
-#         if body.sort_price == 0:
-#             query += f" ORDER BY mi.price ASC"
-#         else:
-#             query += f" ORDER BY mi.price DESC"
-#     else:
-#         query += f" ORDER BY mr.posted_time DESC"
-
-#     if body.limit:
-#         query += f" LIMIT {int(body.limit)}"
-        
-#     if body.offset:
-#         query += f" OFFSET {int(body.offset)}"
-
-#     cursor.execute(query, params)
-#     results = cursor.fetchall()
-    
-
-#     # Trả về dạng dict
-#     columns = [col[0] for col in cursor.description]
-#     items = [dict(zip(columns, row)) for row in results]
-#     total = len(items)
-#     conn.close()
-
-#     return {"total": total, "items": items}
-
-# @app.post("/tracking/add")
-# def add_tracking(req: TrackingRequest):
-#     conn = get_db()
-#     cursor = conn.cursor()
-#     try:
-#         # lấy thông tin item gốc từ message_items
-#         cursor.execute("""
-#             SELECT transaction_type, ref, brand, color, price, country, currency, year, condition
-#             FROM message_items
-#             WHERE item_id = ?
-#         """, (req.item_id,))
-#         row = cursor.fetchone()
-
-#         if not row:
-#             conn.close()
-#             raise HTTPException(status_code=404, detail="Item not found in message_items")
-
-#         transaction_type, ref, brand, color, price, country, currency, year, condition = row
-#         if not req.min_price:
-#             req.min_price = price if price else None
-#         if not req.max_price:
-#             req.max_price = price if price else None
-
-#         cursor.execute("""
-#             INSERT INTO tracking_items (user_id, item_id, tracking_time, transaction_type, ref, brand, color, min_price, max_price, country, currency, year, condition)
-#             VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-#             ON CONFLICT(user_id, item_id) DO UPDATE SET tracking_time = CURRENT_TIMESTAMP
-#         """, (req.user_id, req.item_id, transaction_type, ref, brand, color, req.min_price, req.max_price, country, currency, year, condition))
-#         existed = False if cursor.lastrowid else True
-#         conn.commit()
-#     except Exception as e:
-#         conn.rollback()
-#         raise HTTPException(status_code=500, detail=str(e))
-#     finally:
-#         conn.close()
-#     return {"status": "success", "message": f"Tracking item {'added' if not existed else 'updated'} successfully."}
-
-# @app.delete("/tracking/remove")
-# def remove_tracking(req: TrackingRequest):
-#     conn = get_db()
-#     cursor = conn.cursor()
-#     try:
-#         cursor.execute("SELECT tracking_id FROM tracking_items WHERE user_id = ? AND item_id = ?", (req.user_id, req.item_id))
-#         rows = cursor.fetchall()
-        
-#         tracking_ids = [row[0] for row in rows]
-        
-#         if tracking_ids:
-#             cursor.executemany("DELETE FROM tracking_results WHERE tracking_id = ?", [(tid,) for tid in tracking_ids])
-#             cursor.execute("DELETE FROM tracking_items WHERE user_id = ? AND item_id = ?", (req.user_id, req.item_id))
-#         else:
-#             raise HTTPException(status_code=404, detail="No tracking found for the given user_id and item_id.")
-        
-#         conn.commit()
-#     except HTTPException:
-#         # nếu là HTTPException thì không wrap lại thành 500, cứ raise luôn
-#         raise
-#     except Exception as e:
-#         conn.rollback()
-#         raise HTTPException(status_code=500, detail=str(e))
-#     finally:
-#         conn.close()
-
-#     return {"status": "success", "message": "Tracking item removed successfully."}
-
 import os
-from fastapi import FastAPI, APIRouter, Body, HTTPException
+import sys
+from fastapi import FastAPI, APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Optional, Literal
 from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
+# Cho phép import từ thư mục cha
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from service.item_service import query_items
 
 load_dotenv()
 
@@ -243,11 +42,15 @@ class SearchRequest(BaseModel):
     sort_price: Optional[Literal[0, 1]] = Field(None, example=0, description="0: asc, 1: desc")
     limit: int = Field(50, example=50)
     offset: int = Field(0, example=0)
+    using_usd: Literal[0, 1] = Field(0, example=0, description="0: không sử dụng USD, 1: sử dụng USD")
 
 
 class TrackingRequest(BaseModel):
     user_id: int
-    item_id: int
+    ref: str = Field(..., example="RE")
+    transaction_type: Literal[0, 1] = Field(0, example=0, description="0: forsale, 1: wtb")
+    year: Optional[str] = Field(None, example="2021")
+    condition: Literal[0, 1] = Field(0, example=0, description="0: new, 1: used")
     min_price: Optional[float] = None
     max_price: Optional[float] = None
 
@@ -273,7 +76,11 @@ def get_item(item_id: int):
         mi.price,
         mi.country,
         mi.currency,
-        mi.year,
+        CASE mi.precision
+            WHEN 'year'  THEN TO_CHAR(mi.release_date, 'YYYY')
+            WHEN 'month' THEN TO_CHAR(mi.release_date, 'YYYY-MM')
+            WHEN 'day'   THEN TO_CHAR(mi.release_date, 'YYYY-MM-DD')
+        END AS release_date,
         mi.condition,
         mi.note,
         mr.posted_time
@@ -294,95 +101,7 @@ def get_item(item_id: int):
 
 @router.post("/search_items")
 def search_items(body: SearchRequest = Body(...)):
-    base_query = f"FROM message_items mi JOIN messages_raw mr ON mi.message_id = mr.id WHERE 1=1"
-    params = []
-
-    if body.transaction_type is not None:
-        transaction_type = "forsale" if body.transaction_type == 0 else "wtb"
-        base_query += " AND mi.transaction_type = %s"
-        params.append(transaction_type)
-
-    if body.condition is not None:
-        condition = "new" if body.condition == 0 else "used"
-        base_query += " AND mi.condition = %s"
-        params.append(condition)
-
-    if body.brand is not None and body.brand.strip() != "":
-        base_query += " AND mi.brand = %s"
-        params.append(body.brand)
-
-    if body.year is not None:
-        base_query += " AND mi.year = %s"
-        params.append(body.year)
-
-    if body.price_min is not None:
-        base_query += " AND mi.price >= %s"
-        params.append(body.price_min)
-
-    if body.price_max is not None:
-        base_query += " AND mi.price <= %s"
-        params.append(body.price_max)
-
-    if body.currency is not None and body.currency.strip() != "":
-        base_query += " AND mi.currency = %s"
-        params.append(body.currency)
-
-    if body.ref:
-        base_query += " AND mi.ref LIKE %s"
-        params.append(f"%{body.ref}%")
-
-    if body.time_range:
-        # PostgreSQL: now() - interval 'x seconds'
-        base_query += " AND mr.posted_time >= (now() - (%s || ' seconds')::interval)"
-        params.append(str(body.time_range))
-
-    if body.country:
-        placeholders = ", ".join(["%s"] * len(body.country))
-        base_query += f" AND mi.country IN ({placeholders})"
-        params.extend(body.country)
-
-    query = f"""
-    SELECT 
-        mi.item_id,
-        mi.message_id,
-        mr.message,
-        mr.sender_name,
-        mr.sender_phone,
-        mi.transaction_type,
-        mi.ref,
-        mi.brand,
-        mi.color,
-        mi.price,
-        mi.country,
-        mi.currency,
-        mi.year,
-        mi.condition,
-        mi.note,
-        mr.posted_time
-    {base_query}
-    """
-
-    if body.sort_price is not None:
-        if body.sort_price == 0:
-            query += " ORDER BY mi.price ASC"
-        else:
-            query += " ORDER BY mi.price DESC"
-    else:
-        query += " ORDER BY mr.posted_time DESC"
-
-    query += " LIMIT %s OFFSET %s"
-    params.extend([body.limit, body.offset])
-
-    conn = get_db()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(query, params)
-            items = cursor.fetchall()
-        total = len(items)
-    finally:
-        conn.close()
-
-    return {"total": total, "items": items}
+    return query_items(body)
 
 
 @router.post("/tracking/add")
@@ -390,70 +109,86 @@ def add_tracking(req: TrackingRequest):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute(f"""
-                SELECT transaction_type, ref, brand, color, price, country, currency, year, condition
-                FROM message_items
-                WHERE item_id = %s
-            """, (req.item_id,))
-            row = cursor.fetchone()
+            # map transaction_type và condition sang text
+            transaction_type = "forsale" if req.transaction_type == 0 else "wtb"
+            condition = None
+            if req.condition is not None:
+                condition = "new" if req.condition == 0 else "used"
 
-            if not row:
-                raise HTTPException(status_code=404, detail="Item not found in message_items")
-
-            transaction_type, ref, brand, color, price, country, currency, year, condition = row
-            if req.min_price is None:
-                req.min_price = price if price else None
-            if req.max_price is None:
-                req.max_price = price if price else None
-
-            cursor.execute(f"""
-                INSERT INTO tracking_items 
-                (user_id, item_id, tracking_time, transaction_type, ref, brand, color, min_price, max_price, country, currency, year, condition)
-                VALUES (%s, %s, CURRENT_TIMESTAMP, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT(user_id, item_id) 
-                DO UPDATE SET tracking_time = CURRENT_TIMESTAMP
+            cursor.execute("""
+                INSERT INTO tracking_queries 
+                (user_id, tracking_time, transaction_type, ref, min_price, max_price, year, condition, count)
+                VALUES (%s, (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'), %s, %s, %s, %s, %s, %s, 0)
+                ON CONFLICT(user_id, transaction_type, ref, min_price, max_price, year, condition)
+                DO UPDATE SET 
+                    tracking_time = (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
                 RETURNING tracking_id
-            """, (req.user_id, req.item_id, transaction_type, ref, brand, color, req.min_price, req.max_price, country, currency, year, condition))
+            """, (
+                req.user_id,
+                transaction_type,
+                req.ref,
+                req.min_price,
+                req.max_price,
+                req.year,
+                condition
+            ))
             tracking_id = cursor.fetchone()[0]
         conn.commit()
-    except HTTPException:
-        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
 
-    return {"status": "success", "tracking_id": tracking_id, "message": "Tracking item added/updated successfully."}
+    return {
+        "status": "success",
+        "tracking_id": tracking_id,
+        "message": "Tracking query added/updated successfully."
+    }
 
-
-@router.delete("/tracking/remove")
-def remove_tracking(req: TrackingRequest):
+@router.post("/tracking/update")
+def update_tracking(tracking_id: int):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute(f"""
-                SELECT tracking_id 
-                FROM tracking_items 
-                WHERE user_id = %s AND item_id = %s
-            """, (req.user_id, req.item_id))
-            rows = cursor.fetchall()
+            cursor.execute("""
+                UPDATE tracking_queries
+                SET tracking_time = CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+                WHERE tracking_id = %s
+                RETURNING tracking_id, tracking_time
+            """, (tracking_id,))
+            row = cursor.fetchone()
 
-            tracking_ids = [r[0] for r in rows]
+            if not row:
+                raise HTTPException(status_code=404, detail="Tracking ID not found")
 
-            if tracking_ids:
-                cursor.executemany(
-                    f"DELETE FROM tracking_results WHERE tracking_id = %s",
-                    [(tid,) for tid in tracking_ids]
-                )
-                cursor.execute(
-                    f"DELETE FROM tracking_items WHERE user_id = %s AND item_id = %s RETURNING tracking_id",
-                    (req.user_id, req.item_id)
-                )
-                tracking_id = cursor.fetchone()[0]
-            else:
-                raise HTTPException(status_code=404, detail="No tracking found for the given user_id and item_id.")
+        conn.commit()
+        return {
+            "status": "success",
+            "tracking_id": row[0],
+            "tracking_time": row[1],
+            "message": "Tracking time updated successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
 
+@router.delete("/tracking/remove")
+def remove_tracking(tracking_id: int = Query(..., description="ID of the tracking query to remove")):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM tracking_queries WHERE tracking_id = %s RETURNING tracking_id",
+                (tracking_id,)
+            )
+            deleted = cursor.fetchone()
+            if not deleted:
+                raise HTTPException(status_code=404, detail="Tracking query not found")
         conn.commit()
     except HTTPException:
         raise
@@ -463,4 +198,67 @@ def remove_tracking(req: TrackingRequest):
     finally:
         conn.close()
 
-    return {"status": "success", "tracking_id": tracking_id, "message": "Tracking item removed successfully."}
+    return {
+        "status": "success",
+        "tracking_id": tracking_id,
+        "message": "Tracking query removed successfully."
+    }
+
+@router.get("/tracking/list")
+def list_tracking(user_id: int = Query(..., description="ID of the user to list tracking queries for")):
+    conn = get_db()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute("""
+                SELECT * FROM tracking_queries WHERE user_id = %s
+            """, (user_id,))
+            items = cursor.fetchall()
+    finally:
+        conn.close()
+    return items
+
+@router.get("/tracking/matching_items")
+def list_matching_items(tracking_id: int = Query(..., description="ID of the tracking query to list matching items for"),
+                        limit: int = Query(50, description="Number of items to return"), 
+                        offset: int = Query(0)):
+    conn = get_db()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """
+                SELECT tracking_id, user_id, transaction_type, ref, min_price, max_price, year, condition,
+                EXTRACT(EPOCH FROM (now() - tracking_time))::int AS time_range
+                FROM tracking_queries
+                WHERE tracking_id = %s
+                """,
+                (tracking_id,)
+            )   
+            tracking = cursor.fetchone()
+
+        if not tracking:
+            raise HTTPException(status_code=404, detail="Tracking query not found")
+
+    finally:
+        conn.close()
+
+    # map sang "body" giả lập SearchRequest
+    class TrackingSearchBody:
+        def __init__(self, row):
+            self.transaction_type = 0 if row["transaction_type"] == "forsale" else 1 if row["transaction_type"] == "wtb" else None
+            self.condition = 0 if row["condition"] == "new" else 1 if row["condition"] == "used" else None
+            self.ref = row["ref"]
+            self.year = row["year"]
+            self.price_min = row["min_price"]
+            self.price_max = row["max_price"]
+            self.time_range = row["time_range"]
+            
+            self.limit = 50
+            self.offset = 0
+            self.using_usd = 1
+            self.brand = None
+            self.currency = None
+            self.country = None
+            self.sort_price = None
+
+    body = TrackingSearchBody(tracking)
+    return query_items(body)

@@ -53,14 +53,14 @@ async def import_messages(data: List[MessageRaw]):
         data_dicts = [msg.dict() for msg in data]
 
         all_items = process_and_insert_messages(data_dicts, conn)
-        for item in all_items:
-            # Đẩy từng item vào queue
-            r.rpush("tracking_queue", json.dumps(item))
-        queue_items = r.lrange("tracking_queue", 0, -1)
-        for q in queue_items:
-            print(json.loads(q))
+        # for item in all_items:
+        #     # Đẩy từng item vào queue
+        #     r.rpush("tracking_queue", json.dumps(item))
+        # queue_items = r.lrange("tracking_queue", 0, -1)
+        # for q in queue_items:
+        #     print(json.loads(q))
         logger.info(f"Imported {len(all_items)} messages")
-        return {"status": "ok", "processed": len(all_items), "items": all_items}
+        return {"status": "ok", "processed": len(all_items)}
     except Exception as e:
         conn.rollback()
         logger.error(f"Import failed: {e}")
