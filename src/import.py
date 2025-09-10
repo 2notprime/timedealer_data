@@ -1,4 +1,4 @@
-# uvicorn src.main:app --host 0.0.0.0 --port 7000 --reload
+# uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 import sys
 import os
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +20,5 @@ app.add_middleware(
 )
 
 # Mount routers từ 2 file khác nhau
-# app.include_router(import_api.router, prefix="/import")
-app.include_router(api.router)
-# app.include_router(tracking.router, prefix="/ws")
+app.include_router(import_api.router)
+

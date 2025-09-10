@@ -176,13 +176,23 @@ def process_and_insert_messages(data: List[Dict], conn) -> List[Dict]:
         time_str = msg.get("time")
         posted_time = None
         if time_str:
+            # try:
+            #     posted_time = datetime.fromisoformat(time_str)
+            # except ValueError:
+            #     try:
+            #         posted_time = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+            #     except ValueError:
+            #         posted_time = datetime.now()  # fallback
             try:
                 posted_time = datetime.fromisoformat(time_str)
+                if posted_time.tzinfo is None:  # nếu thiếu tzinfo
+                    posted_time = posted_time.replace(tzinfo=timezone.utc)
             except ValueError:
                 try:
                     posted_time = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+                    posted_time = posted_time.replace(tzinfo=timezone.utc)
                 except ValueError:
-                    posted_time = datetime.now()  # fallback
+                    posted_time = datetime.now(timezone.utc)  # fallback
         print(posted_time)
 
         # Hash để check trùng
@@ -273,10 +283,18 @@ def process_and_insert_messages(data: List[Dict], conn) -> List[Dict]:
                     all_items.append(row_item)
         else:
             # Copy items từ message cũ
+            # cur.execute("""
+            #     SELECT id FROM timedealer.messages_raw
+            #     WHERE hash_message = %s
+            #     ORDER BY posted_time ASC
+            #     LIMIT 1;
+            # """, (hash_message,))
             cur.execute("""
-                SELECT id FROM timedealer.messages_raw
-                WHERE hash_message = %s
-                ORDER BY posted_time ASC
+                SELECT mr.id
+                FROM timedealer.messages_raw mr
+                WHERE mr.hash_message = %s
+                AND EXISTS (SELECT 1 FROM timedealer.message_items mi WHERE mi.message_id = mr.id)
+                ORDER BY mr.posted_time ASC
                 LIMIT 1;
             """, (hash_message,))
             row = cur.fetchone()
