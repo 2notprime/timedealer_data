@@ -1,10 +1,14 @@
 import os
+import sys
 from fastapi import FastAPI, APIRouter, Body, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, Literal
 from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from utils.map_code2dial import code_to_dial
 
 load_dotenv()
 
@@ -76,10 +80,20 @@ def query_items(body):
         base_query += " AND mr.posted_time >= (now() - (%s || ' seconds')::interval)"
         params.append(str(body.time_range))
 
+    # if body.country:
+    #     placeholders = ", ".join(["%s"] * len(body.country))
+    #     base_query += f" AND mi.country IN ({placeholders})"
+    #     params.extend(body.country)
+
     if body.country:
-        placeholders = ", ".join(["%s"] * len(body.country))
-        base_query += f" AND mi.country IN ({placeholders})"
-        params.extend(body.country)
+        dial_codes = []
+        for c in body.country:
+            dial_codes.extend(code_to_dial.get(c, []))
+
+        if dial_codes:
+            placeholders = " OR ".join(["mr.sender_phone LIKE %s"] * len(dial_codes))
+            base_query += f" AND ({placeholders})"
+            params.extend([d + "%" for d in dial_codes])
 
     query = f"""
     SELECT 
