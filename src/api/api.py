@@ -29,12 +29,12 @@ SCHEMA = "timedealer"
 
 
 class SearchRequest(BaseModel):
-    ref: Optional[str] = Field(None, example="RE")
+    ref: Optional[str] = Field(None, example="155")
     transaction_type: Literal[0, 1] = Field(0, example=0, description="0: forsale, 1: wtb")
     condition: Literal[0, 1] = Field(0, example=0, description="0: new, 1: used")
-    brand: Optional[str] = Field(None, example="Puma")
-    year: Optional[str] = Field(None, example="2021")
-    country: Optional[list[str]] = Field(None, example=["VN", "US", "DE"])
+    brand: Optional[str] = Field(None, example="Audemars Piguet")
+    year: Optional[list[int]] = Field(None, example=[2000, 2025])
+    country: Optional[list[str]] = Field(None, example=["VN", "US", "DE", "HK"])
     time_range: Optional[int] = Field(None, example=8640000)
     price_min: Optional[float] = Field(None, example=0)
     price_max: Optional[float] = Field(None, example=1000000000)

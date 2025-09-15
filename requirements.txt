@@ -1,6 +1,7 @@
 faker
-fastapi
-uvicorn 
+fastapi==0.115.5 
+starlette==0.40.0 
+uvicorn==0.30.6
 pydantic
 pandas
 tqdm
@@ -9,3 +10,6 @@ python-dotenv
 google.generativeai
 redis
 websockets
+rq
+python-multipart
+elasticsearch==8.15.0

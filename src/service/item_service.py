@@ -9,6 +9,7 @@ from psycopg2.extras import RealDictCursor
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils.map_code2dial import code_to_dial
+from utils.exchange_currency import get_exchange_rate_usd
 
 load_dotenv()
 
@@ -29,8 +30,9 @@ def get_db():
     return conn
 
 def query_items(body):
-    base_query = f"FROM message_items mi JOIN messages_raw mr ON mi.message_id = mr.id WHERE 1=1"
+    base_query = f"FROM message_items mi JOIN messages_raw mr ON mi.message_id = mr.id WHERE 1=1 AND mi.currency IS NOT NULL AND mi.price IS NOT NULL"
     params = []
+    message = []
 
     if body.transaction_type is not None:
         transaction_type = "forsale" if body.transaction_type == 0 else "wtb"
@@ -46,18 +48,35 @@ def query_items(body):
         base_query += " AND mi.brand = %s"
         params.append(body.brand)
 
-    if body.year is not None:
-        base_query += " AND EXTRACT(YEAR FROM mi.release_date) = %s"
-        params.append(body.year)
-
-    if body.using_usd is not None and body.using_usd == 0:
+    if body.year is not None and len(body.year) == 2:
+        start_year, end_year = body.year
+        base_query += " AND EXTRACT(YEAR FROM mi.release_date) BETWEEN %s AND %s"
+        params.extend([start_year, end_year])
+    
+    if body.currency is not None and body.currency.strip() != "":
         if body.price_min is not None:
-            base_query += " AND mi.price >= %s"
-            params.append(body.price_min)
-
+            try:
+                price_min = float(body.price_min) / get_exchange_rate_usd(body.currency)
+                base_query += " AND mi.usd_price >= %s"
+                params.append(price_min)
+            except:
+                message.append(f"Invalid currency code: {body.currency}")
         if body.price_max is not None:
-            base_query += " AND mi.price <= %s"
-            params.append(body.price_max)
+            try:
+                price_max = float(body.price_max) / get_exchange_rate_usd(body.currency)
+                base_query += " AND mi.usd_price <= %s"
+                params.append(price_max)
+            except:
+                message.append(f"Invalid currency code: {body.currency}")
+            
+    # if body.using_usd is not None and body.using_usd == 0:
+    #     if body.price_min is not None:
+    #         base_query += " AND mi.price >= %s"
+    #         params.append(body.price_min)
+
+    #     if body.price_max is not None:
+    #         base_query += " AND mi.price <= %s"
+    #         params.append(body.price_max)
     elif body.using_usd is not None and body.using_usd == 1:
         if body.price_min is not None:
             base_query += " AND mi.usd_price >= %s"
@@ -66,10 +85,6 @@ def query_items(body):
         if body.price_max is not None:
             base_query += " AND mi.usd_price <= %s"
             params.append(body.price_max)
-
-    if body.currency is not None and body.currency.strip() != "":
-        base_query += " AND mi.currency = %s"
-        params.append(body.currency)
 
     if body.ref:
         base_query += " AND mi.ref LIKE %s"
@@ -122,9 +137,9 @@ def query_items(body):
 
     if body.sort_price is not None:
         if body.sort_price == 0:
-            query += " ORDER BY mi.price ASC"
+            query += " ORDER BY mi.usd_price ASC"
         else:
-            query += " ORDER BY mi.price DESC"
+            query += " ORDER BY mi.usd_price DESC"
     else:
         query += " ORDER BY mr.posted_time DESC"
 
@@ -140,4 +155,4 @@ def query_items(body):
     finally:
         conn.close()
 
-    return {"total": total, "items": items}
+    return {"total": total, "items": items, "message": message}
