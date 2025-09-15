@@ -17,7 +17,14 @@ redis_conn = redis.Redis(host="localhost", port=6379, db=0)
 q = Queue("default", connection=redis_conn)
 
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-logging_file = os.path.join(src_dir, "logs", "import_message_results.log")
+log_dir = os.path.join(src_dir, "logs")
+os.makedirs(log_dir, exist_ok=True)  # Tạo thư mục logs nếu chưa có
+
+logging_file = os.path.join(log_dir, "import_message_results.log")
+
+if not os.path.exists(logging_file):
+    with open(logging_file, "w", encoding="utf-8") as f:
+        f.write("")
 logging.basicConfig(
     filename=logging_file,
     level=logging.INFO,
