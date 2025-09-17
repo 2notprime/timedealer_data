@@ -31,7 +31,7 @@ SCHEMA = "timedealer"
 class SearchRequest(BaseModel):
     ref: Optional[str] = Field(None, example="155")
     transaction_type: Literal[0, 1] = Field(0, example=0, description="0: forsale, 1: wtb")
-    condition: Literal[0, 1] = Field(0, example=0, description="0: new, 1: used")
+    condition: Optional[int] = Field(0, example=0, description="0: new, 1: used, 2: both")
     brand: Optional[str] = Field(None, example="Audemars Piguet")
     year: Optional[list[int]] = Field(None, example=[2000, 2025])
     country: Optional[list[str]] = Field(None, example=["VN", "US", "DE", "HK"])

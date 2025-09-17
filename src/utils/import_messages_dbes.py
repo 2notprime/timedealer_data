@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from utils.extract_messages import analyze_message
 from utils.exchange_currency import get_exchange_rate_usd
 from utils.preprocessing_data import parse_date
+from elasticsearch.helpers import bulk
+
 
 def process_and_insert_messages(data: List[Dict], conn, es_client=None, es_index: str = None) -> List[Dict]:
     """
@@ -87,6 +89,7 @@ def process_and_insert_messages(data: List[Dict], conn, es_client=None, es_index
         # Nếu là message mới -> extract
         if unique_id and dup_count == 0:
             items = analyze_message(message)
+            es_actions = []
             for item in items:
                 currency = item.get("currency")
                 price = item.get("price")
@@ -123,7 +126,7 @@ def process_and_insert_messages(data: List[Dict], conn, es_client=None, es_index
                 if row_item:
                     all_items.append(row_item)
 
-                    # --- push to ES ---
+                    # --- build ES action ---
                     if es_client and es_index:
                         columns = [desc[0] for desc in cur.description]
                         doc = dict(zip(columns, row_item))
@@ -131,11 +134,18 @@ def process_and_insert_messages(data: List[Dict], conn, es_client=None, es_index
                         doc["sender_name"] = msg.get("senderName")
                         doc["sender_phone"] = sender_phone
                         doc["posted_time"] = posted_time.isoformat()
-                        try:
-                            es_client.index(index=es_index, document=doc)
-                        except Exception as e:
-                            print("ES index error:", e)
 
+                        es_actions.append({
+                            "_index": es_index,
+                            "_source": doc
+                        })
+            # --- Bulk push to ES ---
+            if es_client and es_index and es_actions:
+                try:
+                    success, failed = bulk(es_client, es_actions, stats_only=True)
+                    print(f"Indexed {success} docs, failed {failed}")
+                except Exception as e:
+                    print("ES bulk index error:", e)
         else:
             # Copy items từ bản cũ
             cur.execute("""
@@ -167,16 +177,25 @@ def process_and_insert_messages(data: List[Dict], conn, es_client=None, es_index
                     # --- push copy to ES ---
                     if es_client and es_index:
                         columns = [desc[0] for desc in cur.description]
+                        actions = []
                         for row_item in copied_items:
                             doc = dict(zip(columns, row_item))
                             doc["message"] = message
                             doc["sender_name"] = msg.get("senderName")
                             doc["sender_phone"] = sender_phone
                             doc["posted_time"] = posted_time.isoformat()
+
+                            actions.append({
+                                "_index": es_index,
+                                "_source": doc
+                            })
+
+                        if actions:
                             try:
-                                es_client.index(index=es_index, document=doc)
+                                success, failed = bulk(es_client, actions, stats_only=True)
+                                print(f"Indexed {success} docs, failed {failed}")
                             except Exception as e:
-                                print("ES index error:", e)
+                                print("ES bulk index error:", e)
 
         # Update last_seen
         if unique_id:

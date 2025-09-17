@@ -40,8 +40,15 @@ def query_items(body):
         params.append(transaction_type)
 
     if body.condition is not None:
-        condition = "new" if body.condition == 0 else "used"
-        base_query += " AND mi.condition = %s"
+        if body.condition == 0:
+            condition = ["new"]
+        elif body.condition == 1:
+            condition = ["used"]
+        elif body.condition == 2:
+            condition = ["new", "used"]  # Both new and used
+        else:
+            condition = []
+        base_query += " AND mi.condition = ANY(%s)"
         params.append(condition)
 
     if body.brand is not None and body.brand.strip() != "":
@@ -140,6 +147,8 @@ def query_items(body):
             query += " ORDER BY mi.usd_price ASC"
         else:
             query += " ORDER BY mi.usd_price DESC"
+    
+        query += " ,mr.posted_time DESC"
     else:
         query += " ORDER BY mr.posted_time DESC"
 
