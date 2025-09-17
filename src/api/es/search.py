@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 from typing import Optional, Literal, List
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch, exceptions
+from datetime import datetime
+
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
@@ -43,6 +45,18 @@ class SearchRequest(BaseModel):
     using_usd: Literal[0, 1] = Field(0, example=0, description="0: không sử dụng USD, 1: sử dụng USD")
 
 router = APIRouter()
+
+def format_release_date(item):
+    rd = item.get("release_date")
+    precision = item.get("precision")
+    if rd and precision:
+        if precision == "year":
+            return rd[:4]
+        elif precision == "month":
+            return rd[:7]
+        else:
+            return rd[:10]
+    return rd
 
 # --- Helper function to build ES query ---
 def build_es_query(body: SearchRequest):
@@ -153,7 +167,12 @@ def search_items(body: SearchRequest = Body(...)):
         res = es.search(index=ES_INDEX, body=query)
         hits = res.get("hits", {}).get("hits", [])
         total = res.get("hits", {}).get("total", {}).get("value", 0)
-        items = [hit["_source"] for hit in hits]
+        items = []
+        for hit in hits:
+            doc = hit["_source"]
+            doc["release_date"] = format_release_date(doc)
+            doc.pop("precision", None)
+            items.append(doc)
         return {"total": total, "items": items}
     except exceptions.ElasticsearchException as e:
         raise HTTPException(status_code=500, detail=str(e))
