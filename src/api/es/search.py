@@ -26,10 +26,10 @@ es = Elasticsearch(
 )
 
 # --- Pydantic model for query ---
-class ItemQuery(BaseModel):
+class SearchRequest(BaseModel):
     ref: Optional[str] = Field(None, example="155")
     transaction_type: Literal[0, 1] = Field(0, example=0, description="0: forsale, 1: wtb")
-    condition: Literal[0, 1] = Field(0, example=0, description="0: new, 1: used")
+    condition: Optional[int] = Field(0, example=0, description="0: new, 1: used, 2: both")
     brand: Optional[str] = Field(None, example="Audemars Piguet")
     year: Optional[list[int]] = Field(None, example=[2000, 2025])
     country: Optional[list[str]] = Field(None, example=["VN", "US", "DE", "HK"])
@@ -45,7 +45,7 @@ class ItemQuery(BaseModel):
 router = APIRouter()
 
 # --- Helper function to build ES query ---
-def build_es_query(body: ItemQuery):
+def build_es_query(body: SearchRequest):
     must_filters = []
     range_filters = []
 
@@ -57,9 +57,12 @@ def build_es_query(body: ItemQuery):
 
     # condition
     if body.condition is not None:
-        must_filters.append({
-            "term": {"condition": "new" if body.condition == 0 else "used"}
-        })
+        if body.condition == 0:  # new
+            must_filters.append({"term": {"condition": "new"}})
+        elif body.condition == 1:  # used
+            must_filters.append({"term": {"condition": "used"}})
+        elif body.condition == 2:  # both
+            must_filters.append({"terms": {"condition": ["new", "used"]}})
 
     # brand
     if body.brand:
@@ -144,7 +147,7 @@ def build_es_query(body: ItemQuery):
 
 # --- API endpoint ---
 @router.post("/search")
-def search_items(body: ItemQuery = Body(...)):
+def search_items(body: SearchRequest = Body(...)):
     try:
         query = build_es_query(body)
         res = es.search(index=ES_INDEX, body=query)
