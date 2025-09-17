@@ -85,6 +85,7 @@ def build_es_query(body: ItemQuery):
                 price_max_usd = float(body.price_max) / get_exchange_rate_usd(body.currency)
             else:
                 price_max_usd = None
+            print(f"Converted price range to USD: {price_min_usd} - {price_max_usd}")
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid currency: {body.currency}")
 
@@ -130,9 +131,14 @@ def build_es_query(body: ItemQuery):
 
     # sort
     if body.sort_price is not None:
-        query_body["sort"] = [{"usd_price" if body.using_usd else "price": {"order": "asc" if body.sort_price==0 else "desc"}}]
+        query_body["sort"] = [
+        {"usd_price" : {"order": "asc" if body.sort_price == 0 else "desc"}},
+        {"posted_time": {"order": "desc"}}   # luôn kèm sort theo time
+    ]
     else:
-        query_body["sort"] = [{"posted_time": {"order": "desc"}}]
+        query_body["sort"] = [
+            {"posted_time": {"order": "desc"}}
+        ]
 
     return query_body
 
