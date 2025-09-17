@@ -88,12 +88,12 @@ def build_es_query(body: ItemQuery):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid currency: {body.currency}")
 
-        price_field = "usd_price" if body.using_usd else "price"
+        price_field = "usd_price"
         range_filter = {}
         if price_min_usd is not None:
-            range_filter["gte"] = price_min_usd if body.using_usd else body.price_min
+            range_filter["gte"] = price_min_usd
         if price_max_usd is not None:
-            range_filter["lte"] = price_max_usd if body.using_usd else body.price_max
+            range_filter["lte"] = price_max_usd
         range_filters.append({"range": {price_field: range_filter}})
 
     # ref
