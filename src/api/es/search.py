@@ -116,7 +116,7 @@ def build_es_query(body: SearchRequest):
 
     # ref
     if body.ref:
-        must_filters.append({"wildcard": {"ref": f"*{body.ref}*"}})
+        must_filters.append({"wildcard": {"ref": f"{body.ref}*"}})
 
     # time_range
     if body.time_range:
