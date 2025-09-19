@@ -1,24 +1,17 @@
+import json
+import logging
 import os
 import sys
-import uuid
 import psycopg2
-import redis
 import json
-import time
-from fastapi import FastAPI, APIRouter, Request, HTTPException, BackgroundTasks, Body
-from pydantic import BaseModel
-from typing import List
-from rq import Queue
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
 import logging
 
 # Cho phép import từ thư mục cha
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-# from utils.import_messages import process_and_insert_messages
-from service.import_worker import import_messages_job
 from utils.import_messages_dbes import process_and_insert_messages
-from service.import_tasks import import_messages_task
+from service.celery_app import celery
 
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 log_dir = os.path.join(src_dir, "logs")
@@ -31,10 +24,6 @@ if not os.path.exists(logging_file):
         f.write("")
 
 load_dotenv()
-
-# Config Redis
-redis_conn = redis.Redis(host="127.0.0.1", port=6379, db=0)
-q = Queue("default", connection=redis_conn)
 
 # Config DB
 DB_CONFIG = {
@@ -54,52 +43,27 @@ ES_INDEX = os.getenv("ES_INDEX", "message_items")
 
 es = Elasticsearch(ES_HOST, basic_auth=(ES_USER, ES_PASSWORD))
 
-router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class MessageRaw(BaseModel):
-    message: str
-    groupName: str
-    senderName: str
-    senderPhone: str
-    time: str
-    image: str
 
 def get_conn():
     conn = psycopg2.connect(**DB_CONFIG)
     # conn.cursor().execute("SET search_path TO timedealer;")
     return conn
 
+@celery.task
 def import_messages_task(data_dicts, job_id=None):
     conn = get_conn()
     try:
-        # all_items = process_and_insert_messages(data_dicts, conn)
         all_items = process_and_insert_messages(data_dicts, conn, es_client=es, es_index=ES_INDEX)
         result = {"job_id": job_id, "processed": len(all_items)}
-        print(all_items)
         logger.info(json.dumps(result, ensure_ascii=False))
+        return result
     except Exception as e:
         conn.rollback()
         error = {"job_id": job_id, "error": str(e)}
-        logger.info(json.dumps(error, ensure_ascii=False))
+        logger.error(json.dumps(error, ensure_ascii=False))
+        return error
     finally:
         conn.close()
-
-@router.post("/import_messages")
-async def import_messages(data: List[MessageRaw] = Body(..., max_length=100000000)):
-    try:
-        data_dicts = [msg.dict() for msg in data]
-        job_id = str(uuid.uuid4())
-        import_messages_task.delay(data_dicts, job_id)
-        return {"status": "queued", "job_id": job_id, "queued": len(data_dicts)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# @router.post("/import_messages")
-# async def import_messages(data: List[MessageRaw] = Body(..., max_length=100000000), background_tasks: BackgroundTasks=None):
-#     data_dicts = [msg.dict() for msg in data]
-#     job_id = str(int(time.time() * 1000))  # ID tạm thời, timestamp
-#     background_tasks.add_task(import_messages_task, data_dicts, job_id)
-#     return {"status": "processing", "job_id": job_id}
-    

@@ -8,7 +8,7 @@ tqdm
 psycopg2
 python-dotenv
 google.generativeai
-redis
+celery[redis] redis
 websockets
 rq
 python-multipart
