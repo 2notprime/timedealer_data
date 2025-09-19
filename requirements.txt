@@ -5,7 +5,7 @@ uvicorn==0.30.6
 pydantic
 pandas
 tqdm
-psycopg2
+psycopg2-binary
 python-dotenv
 google.generativeai
 celery[redis] 
