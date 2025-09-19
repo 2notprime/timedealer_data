@@ -58,6 +58,7 @@ def import_messages_task(data_dicts, job_id=None):
     try:
         all_items = process_and_insert_messages(data_dicts, conn, es_client=es, es_index=ES_INDEX)
         result = {"job_id": job_id, "processed": len(all_items)}
+        print(result)
         logger.info(json.dumps(result, ensure_ascii=False))
         return result
     except Exception as e:
