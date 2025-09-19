@@ -71,20 +71,20 @@ def get_conn():
     # conn.cursor().execute("SET search_path TO timedealer;")
     return conn
 
-def import_messages_task(data_dicts, job_id=None):
-    conn = get_conn()
-    try:
-        # all_items = process_and_insert_messages(data_dicts, conn)
-        all_items = process_and_insert_messages(data_dicts, conn, es_client=es, es_index=ES_INDEX)
-        result = {"job_id": job_id, "processed": len(all_items)}
-        print(all_items)
-        logger.info(json.dumps(result, ensure_ascii=False))
-    except Exception as e:
-        conn.rollback()
-        error = {"job_id": job_id, "error": str(e)}
-        logger.info(json.dumps(error, ensure_ascii=False))
-    finally:
-        conn.close()
+# def import_messages_task(data_dicts, job_id=None):
+#     conn = get_conn()
+#     try:
+#         # all_items = process_and_insert_messages(data_dicts, conn)
+#         all_items = process_and_insert_messages(data_dicts, conn, es_client=es, es_index=ES_INDEX)
+#         result = {"job_id": job_id, "processed": len(all_items)}
+#         print(all_items)
+#         logger.info(json.dumps(result, ensure_ascii=False))
+#     except Exception as e:
+#         conn.rollback()
+#         error = {"job_id": job_id, "error": str(e)}
+#         logger.info(json.dumps(error, ensure_ascii=False))
+#     finally:
+#         conn.close()
 
 @router.post("/import_messages")
 async def import_messages(data: List[MessageRaw] = Body(..., max_length=100000000)):
