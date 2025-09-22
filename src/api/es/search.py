@@ -175,7 +175,7 @@ def search_items(body: SearchRequest = Body(...)):
             doc.pop("precision", None)
             items.append(doc)
         return {"total": total, "items": items}
-    except exceptions.ElasticsearchException as e:
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
 @router.post("/search_test")
@@ -194,5 +194,5 @@ def search_items(body: SearchRequest = Body(...)):
         items = filter_and_add_count(items)
         total = len(items)
         return {"total": total, "items": items}
-    except exceptions.ElasticsearchException as e:
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
