@@ -24,18 +24,20 @@ def get_db():
 
 def filter_and_add_count(es_items, conn=get_db()):
     """
-    es_items: list JSON từ ES [{item_id, message_id}, ...]
-    conn: connection PostgreSQL (psycopg2.connect)
+    Input:
+        es_items: list JSON từ ES [{...,"item_id", "message_id"}]
+    Output:
+        list JSON đã giữ nguyên data + thêm duplicate_count,
+        và chỉ giữ lại item có message_id mới nhất theo hash_message
     """
 
     if not es_items:
         return []
 
+    # Lấy danh sách messid từ ES
     message_ids = [item["message_id"] for item in es_items]
 
     with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-        # Lấy hash_message và duplicate_count tương ứng
-        # Chỉ query những message_id cần thiết
         format_strings = ",".join(["%s"] * len(message_ids))
         sql = f"""
             SELECT id AS message_id, hash_message, duplicate_count
@@ -45,27 +47,24 @@ def filter_and_add_count(es_items, conn=get_db()):
         cursor.execute(sql, message_ids)
         mess_rows = cursor.fetchall()
 
-    # Python xử lý giữ message_id mới nhất theo hash
+    # B1: group theo hash_message, giữ message_id lớn nhất
     latest_by_hash = {}
     for row in mess_rows:
         h = row["hash_message"]
         if h not in latest_by_hash or row["message_id"] > latest_by_hash[h]["message_id"]:
             latest_by_hash[h] = row
 
-    # map lại theo message_id
-    mess_dict = {row["message_id"]: row for row in latest_by_hash.values()}
+    # B2: build dict {message_id: duplicate_count}
+    valid_message_ids = {row["message_id"]: row for row in latest_by_hash.values()}
 
-    # build output
+    # B3: duyệt ES items → chỉ giữ item nào gắn với messid mới nhất
     result = []
     for item in es_items:
         mid = item["message_id"]
-        if mid in mess_dict:
-            row = mess_dict[mid]
-            result.append({
-                "item_id": item["item_id"],
-                "message_id": mid,
-                "hash_message": row["hash_message"],
-                "duplicate_count": row["duplicate_count"],
-            })
+        if mid in valid_message_ids:
+            row = valid_message_ids[mid]
+            enriched_item = dict(item)  # copy giữ nguyên data
+            enriched_item["duplicate_count"] = row["duplicate_count"]
+            result.append(enriched_item)
 
     return result
