@@ -136,7 +136,7 @@ def build_es_query(body: SearchRequest):
                     "should": [{"prefix": {"sender_phone": d}} for d in dial_codes]
                 }
             })
-
+    must_filters.append({"exists": {"field": "price"}})
     query_body = {
         "query": {
             "bool": {
