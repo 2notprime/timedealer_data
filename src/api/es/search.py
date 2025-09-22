@@ -13,6 +13,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 
 from utils.map_code2dial import code_to_dial
 from utils.exchange_currency import get_exchange_rate_usd
+from service.item_filter import filter_and_add_count
 
 load_dotenv()
 
@@ -173,6 +174,25 @@ def search_items(body: SearchRequest = Body(...)):
             doc["release_date"] = format_release_date(doc)
             doc.pop("precision", None)
             items.append(doc)
+        return {"total": total, "items": items}
+    except exceptions.ElasticsearchException as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post("/search_test")
+def search_items(body: SearchRequest = Body(...)):
+    try:
+        query = build_es_query(body)
+        res = es.search(index=ES_INDEX, body=query)
+        hits = res.get("hits", {}).get("hits", [])
+        # total = res.get("hits", {}).get("total", {}).get("value", 0)
+        items = []
+        for hit in hits:
+            doc = hit["_source"]
+            doc["release_date"] = format_release_date(doc)
+            doc.pop("precision", None)
+            items.append(doc)
+        items = filter_and_add_count(items)
+        total = len(items)
         return {"total": total, "items": items}
     except exceptions.ElasticsearchException as e:
         raise HTTPException(status_code=500, detail=str(e))
