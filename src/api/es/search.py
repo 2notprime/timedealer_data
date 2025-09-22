@@ -161,7 +161,7 @@ def build_es_query(body: SearchRequest):
     return query_body
 
 # --- API endpoint ---
-@router.post("/search")
+@router.post("/search_without_filter")
 def search_items(body: SearchRequest = Body(...)):
     try:
         query = build_es_query(body)
@@ -178,7 +178,7 @@ def search_items(body: SearchRequest = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.post("/search_test")
+@router.post("/search")
 def search_items(body: SearchRequest = Body(...)):
     try:
         query = build_es_query(body)
