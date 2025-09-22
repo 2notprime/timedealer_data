@@ -18,7 +18,7 @@ from service.item_filter import filter_and_add_count
 load_dotenv()
 
 # --- Elasticsearch setup ---
-ES_HOST = os.getenv("ES_HOST", "http://localhost:9200")
+ES_HOST = os.getenv("ES_HOST", "http://elasticsearch:9200")
 ES_USER = os.getenv("ES_USER", "elastic")
 ES_PASSWORD = os.getenv("ES_PASSWORD", "datatimedealer")
 ES_INDEX = "message_items"
