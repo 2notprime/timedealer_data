@@ -29,6 +29,7 @@ def filter_and_add_count(es_items, conn=get_db()):
     Output:
         list JSON đã giữ nguyên data + thêm duplicate_count,
         và chỉ giữ lại item có message_id mới nhất theo hash_message
+        remove price nếu là wtb
     """
 
     if not es_items:
@@ -65,6 +66,10 @@ def filter_and_add_count(es_items, conn=get_db()):
             row = valid_message_ids[mid]
             enriched_item = dict(item)  # copy giữ nguyên data
             enriched_item["duplicate_count"] = row["duplicate_count"]
+            if "transaction_type" in enriched_item and enriched_item["transaction_type"] == "wtb":
+                enriched_item.pop("price", None)
+                enriched_item.pop("usd_price", None)
+                enriched_item.pop("currency", None)
             result.append(enriched_item)
 
     return result
