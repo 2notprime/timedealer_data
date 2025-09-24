@@ -1,0 +1,53 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=datatimedealer
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - /home/dealer/data/es_data:/usr/share/elasticsearch/data
+  redis:
+    image: redis:7
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  celery:
+    image: python:3.10-slim
+    working_dir: /src
+    volumes:
+      - ./src:/src
+      - ./requirements.txt:/requirements.txt
+    command: >
+      sh -c "pip install --no-cache-dir -r /requirements.txt &&
+           celery -A service.celery_app worker --loglevel=info --concurrency=16 --prefetch-multiplier=1"
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+      - ES_HOST=http://elasticsearch:9200
+      - ES_USER=elastic
+      - ES_PASSWORD=datatimedealer
+      - ES_INDEX=message_items
+    depends_on:
+      - redis
+      - elasticsearch
+    deploy:
+      replicas: 8
+
+  flower:
+    image: mher/flower
+    command: celery --broker=redis://redis:6379/0 flower --port=5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
