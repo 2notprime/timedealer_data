@@ -3,7 +3,7 @@ from typing import List, Dict
 from datetime import datetime, timezone
 from utils.extract_messages import analyze_message
 from utils.exchange_currency import get_exchange_rate_usd
-from utils.preprocessing_data import parse_date
+from utils.preprocessing_data import parse_date, normalize_ref
 from elasticsearch.helpers import bulk
 
 
@@ -131,6 +131,7 @@ def process_and_insert_messages(data: List[Dict], conn, es_client=None, es_index
                         columns = [desc[0] for desc in cur.description]
                         doc = dict(zip(columns, row_item))
                         # doc["message"] = message
+                        doc["norm_ref"] = normalize_ref(doc.get("ref", ""))
                         doc["sender_name"] = msg.get("senderName")
                         doc["sender_phone"] = sender_phone
                         doc["posted_time"] = posted_time.isoformat()
@@ -181,6 +182,7 @@ def process_and_insert_messages(data: List[Dict], conn, es_client=None, es_index
                         for row_item in copied_items:
                             doc = dict(zip(columns, row_item))
                             # doc["message"] = message
+                            doc["norm_ref"] = normalize_ref(doc.get("ref", ""))
                             doc["sender_name"] = msg.get("senderName")
                             doc["sender_phone"] = sender_phone
                             doc["posted_time"] = posted_time.isoformat()

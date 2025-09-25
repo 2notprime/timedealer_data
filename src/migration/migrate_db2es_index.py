@@ -19,6 +19,7 @@ mapping = {
         "sender_phone": {"type": "keyword"},
         "transaction_type": {"type": "keyword"},
         "ref": {"type": "text"},
+        "norm_ref": {"type": "keyword"},
         "brand": {"type": "keyword"},
         "color": {"type": "keyword"},
         "price": {"type": "float"},
