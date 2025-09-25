@@ -30,6 +30,7 @@ def filter_and_add_count(es_items, conn=get_db()):
         list JSON đã giữ nguyên data + thêm duplicate_count,
         và chỉ giữ lại item có message_id mới nhất theo hash_message
         remove price nếu là wtb
+        remove norm_ref
     """
 
     if not es_items:
@@ -70,6 +71,7 @@ def filter_and_add_count(es_items, conn=get_db()):
                 enriched_item.pop("price", None)
                 enriched_item.pop("usd_price", None)
                 enriched_item.pop("currency", None)
+            enriched_item.pop("norm_ref", None)
             result.append(enriched_item)
 
     return result
