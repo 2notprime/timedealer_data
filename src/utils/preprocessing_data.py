@@ -22,4 +22,4 @@ def parse_date(raw_date: str):
     return date_value, precision
 
 def normalize_ref(ref: str) -> str:
-    return re.sub(r'[^a-zA-Z0-9]', '', ref)
+    return re.sub(r'[^a-zA-Z0-9]', '', ref).lower() if ref else ""
