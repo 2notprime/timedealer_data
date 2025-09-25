@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 
 def parse_date(raw_date: str):
     if not raw_date:
@@ -19,3 +20,6 @@ def parse_date(raw_date: str):
     else:
         raise ValueError(f"Invalid date format: {raw_date}")
     return date_value, precision
+
+def normalize_ref(ref: str) -> str:
+    return re.sub(r'[^a-zA-Z0-9]', '', ref)
