@@ -15,7 +15,6 @@ mapping = {
     "properties": {
         "item_id": {"type": "keyword"},
         "message_id": {"type": "keyword"},
-        "message": {"type": "text"},
         "sender_name": {"type": "keyword"},
         "sender_phone": {"type": "keyword"},
         "transaction_type": {"type": "keyword"},

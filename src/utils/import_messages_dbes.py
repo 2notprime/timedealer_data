@@ -130,7 +130,7 @@ def process_and_insert_messages(data: List[Dict], conn, es_client=None, es_index
                     if es_client and es_index:
                         columns = [desc[0] for desc in cur.description]
                         doc = dict(zip(columns, row_item))
-                        doc["message"] = message
+                        # doc["message"] = message
                         doc["sender_name"] = msg.get("senderName")
                         doc["sender_phone"] = sender_phone
                         doc["posted_time"] = posted_time.isoformat()
@@ -180,7 +180,7 @@ def process_and_insert_messages(data: List[Dict], conn, es_client=None, es_index
                         actions = []
                         for row_item in copied_items:
                             doc = dict(zip(columns, row_item))
-                            doc["message"] = message
+                            # doc["message"] = message
                             doc["sender_name"] = msg.get("senderName")
                             doc["sender_phone"] = sender_phone
                             doc["posted_time"] = posted_time.isoformat()
